@@ -6,6 +6,8 @@ class SecurityCheckService
       return 'banned' if user.ban_status == 'banned'
       
       return 'banned' if country_check_failed?(request_context)
+
+      return 'banned' if rooted_device_check_failed?(request_context)
       
       user.ban_status
     end
@@ -26,10 +28,24 @@ class SecurityCheckService
       unless CountryWhitelistService.country_whitelisted?(cf_country)
         Rails.logger.warn "Country check failed: #{cf_country} is not whitelisted"
         return true
-
       end
       
       Rails.logger.info "Country check passed: #{cf_country} is whitelisted"
+      false
+    end
+    
+    # Controller ensures only boolean values reach this method
+    def rooted_device_check_failed?(request_context)
+      rooted_device = request_context[:rooted_device]
+      
+      Rails.logger.info "Rooted device check: #{rooted_device.inspect}"
+      
+      if rooted_device == true
+        Rails.logger.warn "Rooted device check failed: device is rooted"
+        return true
+      end
+      
+      Rails.logger.info "Rooted device check passed: device is not rooted"
       false
     end
   end

@@ -81,6 +81,86 @@ RSpec.describe SecurityCheckService, type: :service do
           end
         end
       end
+
+      context 'with rooted device checks' do
+        context 'when rooted_device is false' do
+          it 'allows the request' do
+            request_context = { rooted_device: false }
+            
+            result = described_class.evaluate_user(user, request_context)
+            expect(result).to eq('not_banned')
+          end
+        end
+
+        context 'when rooted_device is true' do
+          it 'bans the user' do
+            request_context = { rooted_device: true }
+            
+            result = described_class.evaluate_user(user, request_context)
+            expect(result).to eq('banned')
+          end
+        end
+
+        context 'when rooted_device is nil' do
+          it 'allows the request (treats as not rooted)' do
+            request_context = { rooted_device: nil }
+            
+            result = described_class.evaluate_user(user, request_context)
+            expect(result).to eq('not_banned')
+          end
+        end
+
+        context 'when rooted_device key is missing' do
+          it 'allows the request (treats as not rooted)' do
+            request_context = {}
+            
+            result = described_class.evaluate_user(user, request_context)
+            expect(result).to eq('not_banned')
+          end
+        end
+      end
+
+      context 'with multiple security checks' do
+        context 'when both CF-IPCountry and rooted_device checks fail' do
+          it 'bans the user (country check fails first)' do
+            allow(request_double).to receive(:headers).and_return({ 'CF-IPCountry' => 'CN' })
+            request_context = { request: request_double, rooted_device: true }
+            
+            result = described_class.evaluate_user(user, request_context)
+            expect(result).to eq('banned')
+          end
+        end
+
+        context 'when rooted_device check fails but country check passes' do
+          it 'bans the user' do
+            allow(request_double).to receive(:headers).and_return({ 'CF-IPCountry' => 'US' })
+            request_context = { request: request_double, rooted_device: true }
+            
+            result = described_class.evaluate_user(user, request_context)
+            expect(result).to eq('banned')
+          end
+        end
+
+        context 'when country check fails but rooted_device check passes' do
+          it 'bans the user' do
+            allow(request_double).to receive(:headers).and_return({ 'CF-IPCountry' => 'CN' })
+            request_context = { request: request_double, rooted_device: false }
+            
+            result = described_class.evaluate_user(user, request_context)
+            expect(result).to eq('banned')
+          end
+        end
+
+        context 'when both checks pass' do
+          it 'allows the request' do
+            allow(request_double).to receive(:headers).and_return({ 'CF-IPCountry' => 'US' })
+            request_context = { request: request_double, rooted_device: false }
+            
+            result = described_class.evaluate_user(user, request_context)
+            expect(result).to eq('not_banned')
+          end
+        end
+      end
     end
   end
 end

@@ -15,6 +15,9 @@ From the beginning, I’ve followed a test-driven development (TDD) approach, al
 To illustrate my development process, I’ve divided the work into a set of focused pull requests. Each PR represents a logical step in the implementation.
 
 - [Feature/add user check status endpoint](https://github.com/develaper/user_check_status_api/pull/1)
+- [Feature/add country header security check](https://github.com/develaper/user_check_status_api/pull/2)
+- [Feature/add rooted device security check](https://github.com/develaper/user_check_status_api/pull/3)
+
 
 
 ## Tech Stack
@@ -71,6 +74,6 @@ bin/rails generate factory_bot:model User
 
 ## API Endpoints
 
-Base URL: `http://localhost:3000`
+User check status endpoint: http://localhost:3000/v1/user/check_status
 
 *Endpoints will be documented here as they are developed.*
