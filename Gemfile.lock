@@ -121,6 +121,8 @@ GEM
     marcel (1.0.4)
     mini_mime (1.1.5)
     minitest (5.25.5)
+    mock_redis (0.50.0)
+      redis (~> 5)
     msgpack (1.8.0)
     mutex_m (0.3.0)
     net-imap (0.5.9)
@@ -186,6 +188,10 @@ GEM
     rdoc (6.14.2)
       erb
       psych (>= 4.0.0)
+    redis (5.4.0)
+      redis-client (>= 0.22.0)
+    redis-client (0.25.0)
+      connection_pool
     reline (0.6.1)
       io-console (~> 0.5)
     rspec-core (3.13.5)
@@ -226,9 +232,11 @@ DEPENDENCIES
   bootsnap
   debug
   factory_bot_rails
+  mock_redis
   pg (~> 1.1)
   puma (>= 5.0)
   rails (~> 7.1.5, >= 7.1.5.1)
+  redis (>= 4.0.1)
   rspec-rails
   shoulda-matchers
   tzinfo-data

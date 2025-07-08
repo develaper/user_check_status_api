@@ -54,5 +54,50 @@ RSpec.describe V1::UsersController, type: :controller do
         expect(JSON.parse(response.body)).to include('errors')
       end
     end
+
+    describe 'CF-IPCountry security checks' do
+      before do
+        CountryWhitelistService.clear_whitelist
+        CountryWhitelistService.add_countries('US', 'CA', 'GB')
+      end
+
+      after do
+        CountryWhitelistService.clear_whitelist
+      end
+
+      context 'when CF-IPCountry header contains whitelisted country' do
+        it 'allows the request and returns not_banned status' do
+          request.headers['CF-IPCountry'] = 'US'
+          
+          post :check_status, params: valid_attributes
+          
+          expect(response).to have_http_status(:ok)
+          expect(JSON.parse(response.body)['ban_status']).to eq('not_banned')
+        end
+      end
+
+      context 'when CF-IPCountry header contains non-whitelisted country' do
+        it 'bans the user and returns banned status' do
+          request.headers['CF-IPCountry'] = 'CN'
+          
+          post :check_status, params: valid_attributes
+          
+          expect(response).to have_http_status(:ok)
+          expect(JSON.parse(response.body)['ban_status']).to eq('banned')
+          
+          user = User.find_by(idfa: valid_attributes[:idfa])
+          expect(user.ban_status).to eq('banned')
+        end
+      end
+
+      context 'when CF-IPCountry header is missing' do
+        it 'allows the request (no header means direct access or a failed Cloudflare check)' do
+          post :check_status, params: valid_attributes
+          
+          expect(response).to have_http_status(:ok)
+          expect(JSON.parse(response.body)['ban_status']).to eq('not_banned')
+        end
+      end
+    end
   end
 end
