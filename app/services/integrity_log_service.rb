@@ -43,12 +43,14 @@ class IntegrityLogService
   private
 
   def self.build_log_data(user, request_data)
+    ip = request_data[:ip] || IpAnalysisService.extract_ip_from_request(request_data[:request]) || 'Unknown'
+  
     {
       idfa: user.idfa,
       ban_status: user.ban_status,
-      ip: request_data[:ip] || IpAnalysisService.extract_ip_from_request(request_data[:request]) || 'Unknown',
+      ip: ip,
       rooted_device: request_data[:rooted_device] || false,
-      country: request_data[:country] || IpAnalysisService.detect_country_from_ip(request_data[:ip]) || 'Unknown',
+      country: request_data[:country] || IpAnalysisService.detect_country_from_ip(ip),
       proxy: request_data[:proxy] || false,
       vpn: request_data[:vpn] || false,
       additional_info: request_data[:additional_info] || {},
