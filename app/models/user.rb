@@ -9,4 +9,6 @@ class User < ApplicationRecord
     message: "must be a valid UUID format"
   }
   validates :ban_status, presence: true
+
+  has_many :integrity_logs, foreign_key: :idfa, primary_key: :idfa
 end
