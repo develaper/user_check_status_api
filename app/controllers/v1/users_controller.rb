@@ -1,4 +1,13 @@
 class V1::UsersController < ApplicationController
+  # Custom error for invalid rooted_device parameter
+  class InvalidRootedDeviceError < ActionController::BadRequest
+    MESSAGE = "rooted_device parameter must be a boolean (true or false)".freeze
+    
+    def initialize(msg = MESSAGE)
+      super(msg)
+    end
+  end
+
   # POST /v1/user/check_status
   def check_status
     request_context = build_request_context
@@ -12,6 +21,10 @@ class V1::UsersController < ApplicationController
     render json: { ban_status: ban_status }
   rescue ActionController::ParameterMissing => e
     render json: { errors: ["Missing required parameter: #{e.param}"] }, status: :bad_request
+  rescue InvalidRootedDeviceError => e
+    render json: { errors: [e.message] }, status: :bad_request
+  rescue ActionController::BadRequest => e
+    render json: { errors: [e.message] }, status: :bad_request
   rescue => e
     Rails.logger.error "Error in check_status: #{e.message}"
     render json: { errors: ["Internal server error"] }, status: :internal_server_error
@@ -52,9 +65,23 @@ class V1::UsersController < ApplicationController
   def build_request_context
     {
       ip: IpAnalysisService.extract_ip_from_request(request),
-      rooted_device: params[:rooted_device] || false,
+      rooted_device: validate_rooted_device_param,
       request: request, # Needed for IP extraction fallback in IntegrityLogService
       timestamp: Time.current
     }
+  end
+
+  def validate_rooted_device_param
+    rooted_device = params[:rooted_device]
+    
+    # Missing parameter defaults to false (not rooted)
+    return false if rooted_device.nil?
+    
+    # Only accept actual boolean values (JSON API)
+    unless rooted_device.is_a?(TrueClass) || rooted_device.is_a?(FalseClass)
+      raise InvalidRootedDeviceError
+    end
+    
+    rooted_device
   end
 end
