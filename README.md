@@ -44,6 +44,44 @@ bundle install
 bin/rails db:create db:migrate
 bundle exec rspec  # verify setup
 ```
+### Configuration
+
+#### VPN Detection API Key
+
+The application uses [VPNAPI.io](https://vpnapi.io) for VPN/Tor/Proxy detection. You need to configure an API key:
+
+1. **Get a free API key** from https://vpnapi.io (1,000 requests/month free)
+
+2. **Configure the API key** using one of these methods:
+
+**Option A: Environment Variable (Recommended)**
+```bash
+export VPNAPI_KEY="your_api_key_here"
+```
+
+**Option B: Rails Credentials**
+```bash
+EDITOR=nano rails credentials:edit
+```
+Add:
+```yaml
+vpnapi_key: your_api_key_here
+```
+
+**Option C: Development .env file**
+```bash
+# Create .env file in project root
+echo "VPNAPI_KEY=your_api_key_here" > .env
+```
+
+#### Redis Configuration
+
+For development, Redis is optional - the app will fall back to MockRedis if Redis is unavailable.
+
+For production, configure Redis URL:
+```bash
+export REDIS_URL="redis://localhost:6379/0"
+```
 
 ## Usage
 
@@ -76,4 +114,3 @@ bin/rails generate factory_bot:model User
 
 User check status endpoint: http://localhost:3000/v1/user/check_status
 
-*Endpoints will be documented here as they are developed.*

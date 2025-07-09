@@ -6,8 +6,8 @@ class SecurityCheckService
       return 'banned' if user.ban_status == 'banned'
       
       return 'banned' if country_check_failed?(request_context)
-
       return 'banned' if rooted_device_check_failed?(request_context)
+      return 'banned' if vpn_check_failed?(request_context)
       
       user.ban_status
     end
@@ -46,6 +46,25 @@ class SecurityCheckService
       end
       
       Rails.logger.info "Rooted device check passed: device is not rooted"
+      false
+    end
+    
+    def vpn_check_failed?(request_context)
+      request = request_context[:request]
+      return false unless request
+      
+      ip = IpAnalysisService.extract_ip_from_request(request)
+      
+      return false if ip.blank?
+      
+      should_ban = VpnDetectionService.ip_should_be_banned?(ip)
+      
+      if should_ban
+        Rails.logger.warn "VPN check failed: IP #{ip} detected as VPN/Tor/Proxy"
+        return true
+      end
+      
+      Rails.logger.info "VPN check passed: IP #{ip} appears legitimate"
       false
     end
   end

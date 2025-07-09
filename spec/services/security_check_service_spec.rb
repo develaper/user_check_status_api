@@ -3,7 +3,13 @@ require 'rails_helper'
 RSpec.describe SecurityCheckService, type: :service do
   let(:user) { create(:user, ban_status: :not_banned) }
   let(:banned_user) { create(:user, ban_status: :banned) }
-  let(:request_double) { double('request') }
+  let(:request_double) do
+    double('request').tap do |req|
+      allow(req).to receive(:headers).and_return({})
+      allow(req).to receive(:remote_ip).and_return('192.168.1.1')
+      allow(req).to receive(:ip).and_return('192.168.1.1')
+    end
+  end
 
   before do
     CountryWhitelistService.clear_whitelist
@@ -120,10 +126,61 @@ RSpec.describe SecurityCheckService, type: :service do
         end
       end
 
+      context 'with VPN detection checks' do
+        before do
+          # Mock IpAnalysisService to return a test IP
+          allow(IpAnalysisService).to receive(:extract_ip_from_request).and_return('1.2.3.4')
+        end
+
+        context 'when IP is not from VPN/Tor/Proxy' do
+          it 'allows the request' do
+            allow(VpnDetectionService).to receive(:ip_should_be_banned?).with('1.2.3.4').and_return(false)
+            request_context = { request: request_double }
+            
+            result = described_class.evaluate_user(user, request_context)
+            expect(result).to eq('not_banned')
+          end
+        end
+
+        context 'when IP is from VPN/Tor/Proxy' do
+          it 'bans the user' do
+            allow(VpnDetectionService).to receive(:ip_should_be_banned?).with('1.2.3.4').and_return(true)
+            request_context = { request: request_double }
+            
+            result = described_class.evaluate_user(user, request_context)
+            expect(result).to eq('banned')
+          end
+        end
+
+        context 'when no request object is provided' do
+          it 'skips VPN check and allows the request' do
+            request_context = {}
+            
+            result = described_class.evaluate_user(user, request_context)
+            expect(result).to eq('not_banned')
+          end
+        end
+
+        context 'when IP extraction fails' do
+          it 'skips VPN check and allows the request' do
+            allow(IpAnalysisService).to receive(:extract_ip_from_request).and_return(nil)
+            request_context = { request: request_double }
+            
+            result = described_class.evaluate_user(user, request_context)
+            expect(result).to eq('not_banned')
+          end
+        end
+      end
+
       context 'with multiple security checks' do
-        context 'when both CF-IPCountry and rooted_device checks fail' do
+        before do
+          allow(IpAnalysisService).to receive(:extract_ip_from_request).and_return('1.2.3.4')
+        end
+
+        context 'when country, rooted device, and VPN checks all fail' do
           it 'bans the user (country check fails first)' do
             allow(request_double).to receive(:headers).and_return({ 'CF-IPCountry' => 'CN' })
+            allow(VpnDetectionService).to receive(:ip_should_be_banned?).and_return(true)
             request_context = { request: request_double, rooted_device: true }
             
             result = described_class.evaluate_user(user, request_context)
@@ -131,19 +188,10 @@ RSpec.describe SecurityCheckService, type: :service do
           end
         end
 
-        context 'when rooted_device check fails but country check passes' do
+        context 'when VPN check fails but other checks pass' do
           it 'bans the user' do
             allow(request_double).to receive(:headers).and_return({ 'CF-IPCountry' => 'US' })
-            request_context = { request: request_double, rooted_device: true }
-            
-            result = described_class.evaluate_user(user, request_context)
-            expect(result).to eq('banned')
-          end
-        end
-
-        context 'when country check fails but rooted_device check passes' do
-          it 'bans the user' do
-            allow(request_double).to receive(:headers).and_return({ 'CF-IPCountry' => 'CN' })
+            allow(VpnDetectionService).to receive(:ip_should_be_banned?).with('1.2.3.4').and_return(true)
             request_context = { request: request_double, rooted_device: false }
             
             result = described_class.evaluate_user(user, request_context)
@@ -151,9 +199,21 @@ RSpec.describe SecurityCheckService, type: :service do
           end
         end
 
-        context 'when both checks pass' do
+        context 'when country and rooted device checks fail but VPN check passes' do
+          it 'bans the user (country check fails first)' do
+            allow(request_double).to receive(:headers).and_return({ 'CF-IPCountry' => 'CN' })
+            allow(VpnDetectionService).to receive(:ip_should_be_banned?).and_return(false)
+            request_context = { request: request_double, rooted_device: true }
+            
+            result = described_class.evaluate_user(user, request_context)
+            expect(result).to eq('banned')
+          end
+        end
+
+        context 'when all checks pass' do
           it 'allows the request' do
             allow(request_double).to receive(:headers).and_return({ 'CF-IPCountry' => 'US' })
+            allow(VpnDetectionService).to receive(:ip_should_be_banned?).with('1.2.3.4').and_return(false)
             request_context = { request: request_double, rooted_device: false }
             
             result = described_class.evaluate_user(user, request_context)
